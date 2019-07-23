@@ -59,10 +59,7 @@ export function getSafe(o: object, keys: string[], valueDefault?): any {
         // console.log("key:", keys[i]);
         objCur = objCur[keys[i]];
     }
-
-    // if (valueDefault !== null && getType(objCur) !== getType(valueDefault)) // is there a wrong type of return value?
-    //     return valueDefault;
-
+    
     return objCur;
 }
 
@@ -90,13 +87,7 @@ export function copyObject(from: object, to: object = null, options: CopyOptions
         to = (from instanceof Array) ? [] : {};
 
     const {skip, deep, setPrototype, onlyKeys, skipKeys} = options;
-
-    // if (!skip && !deep)
-    //     Object.assign(to, from);
-    // else {
-    //
-    // }
-
+    
     for (let key in from) {
         // console.log("key:", key, from[key]);
         if (!from.hasOwnProperty(key) || (onlyKeys && !onlyKeys[key]) || (skipKeys && skipKeys[key]))
@@ -119,20 +110,33 @@ export function copyObject(from: object, to: object = null, options: CopyOptions
 }
 
 
+type IdToObject = (id: any, context: object) => object | null;
+
+export type GetValueInheritedOptions = {
+    getArrayObjects?: boolean; // returns an array of objects that have been visited, related to keyArrayObjectsToVisit
+    getObjectWithKey?: boolean; // returns the first object that contains the requested key
+}
+export const keyGetArrayObjects = "getArrayObjects";
+export const keyGetObjectWithKey = "getObjectWithKey";
+
+
 const keyNameH = Symbol();
 const keySetVisitedObjects = Symbol();
 const keyArrayObjectsToVisit = Symbol();
+const keyOptions = "options";
 
-type IdToObject = (id, context) => object | null;
-const emptyFunction = (obj, context) => obj;
-
-type GetValueInheritedOptions = {
-    getArrayObjects?: boolean; // related to keyArrayObjectsToVisit
+interface InheritContext {
+    [keyNameH]: ObjectKeyType,
+    [keySetVisitedObjects]: Set<object>,
+    [keyArrayObjectsToVisit]: object[],
+    [keyOptions]: GetValueInheritedOptions,
 }
+
+const emptyFunction: IdToObject = (obj, context) => obj;
 
 
 export function Inherit(keyInherit: ObjectKeyType, idToObject?: IdToObject) {
-    idToObject = idToObject || emptyFunction;
+    const idToObject1 = idToObject || emptyFunction;
 
     // it uses keys above
     function getValueInheritedL(o: object): any {
@@ -140,12 +144,13 @@ export function Inherit(keyInherit: ObjectKeyType, idToObject?: IdToObject) {
             return;
         this[keySetVisitedObjects].add(o);
 
-        if (typeof(o[this[keyNameH]]) !== "undefined")
-            return o[this[keyNameH]];
+        const value = o[this[keyNameH]];
+        if (typeof(value) !== "undefined")
+            return (this[keyOptions].getObjectWithKey) ? getFirstParentWithKey(o, this[keyNameH]) : value; // getObjectAndKey instead of value for the corresponding option
 
         const inherit = o[keyInherit];
         if (inherit) {
-            applyAction(inherit, (objOrId) => (this[keyArrayObjectsToVisit] as any[]).push(idToObject(objOrId, o))); // inherit -> arrayObjectsToVisit
+            applyAction(inherit, (objOrId) => (this[keyArrayObjectsToVisit] as any[]).push(idToObject1(objOrId, o))); // inherit -> arrayObjectsToVisit
         }
     }
 
@@ -153,26 +158,28 @@ export function Inherit(keyInherit: ObjectKeyType, idToObject?: IdToObject) {
         if (typeof(o) !== "object")
             return;
 
-        if (typeof(o[keyName]) !== "undefined")
-            return o[keyName];
+        const value = o[keyName];
+        if (typeof(value) !== "undefined")
+            return options.getObjectWithKey ? getFirstParentWithKey(o, keyName) : value;
 
         const inherit = o[keyInherit];
         if (!inherit)
-            return options["getArrayObjects"] ? [o] : void 0; // undefined
+            return options.getArrayObjects ? [o] : void 0; // undefined
 
         const setVisitedObjects = new Set();
-        const context = {
+        const arrayObjectsToVisit: any[] = [];
+        const context: InheritContext = {
             [keyNameH]: keyName,
             [keySetVisitedObjects]: setVisitedObjects,
-            [keyArrayObjectsToVisit]: [],
+            [keyArrayObjectsToVisit]: arrayObjectsToVisit,
+            [keyOptions]: options,
         };
         setVisitedObjects.add(o);
 
-        const arrayObjectsToVisit: any[] = (context[keyArrayObjectsToVisit] as any[]);
-        applyAction(inherit, (objOrId) => arrayObjectsToVisit.push(idToObject(objOrId, o))); // inherit -> arrayObjectsToVisit
+        applyAction(inherit, (objOrId) => arrayObjectsToVisit.push(idToObject1(objOrId, o))); // inherit -> arrayObjectsToVisit
 
         let result = getFirstDefinedResult(arrayObjectsToVisit, getValueInheritedL, context);
-        if (options["getArrayObjects"]) {
+        if (options.getArrayObjects) {
             arrayObjectsToVisit.unshift(o);
             result = arrayRemoveDublicates(arrayObjectsToVisit); // returns arrayObjectsToVisit
         }
@@ -181,7 +188,41 @@ export function Inherit(keyInherit: ObjectKeyType, idToObject?: IdToObject) {
         return result;
     }
 
-    return {getValueInherited};
+    function addAbstractH(o: object, parent: object): void {
+        const value = o[keyInherit];
+        if (!value)
+            o[keyInherit] = parent;
+        else
+        if (!Array.isArray(value)) {
+            if (parent !== value)
+                o[keyInherit] = [parent, value]; // parent
+        }
+        else // array!
+            unshiftUniqueValue(value, parent);
+    }
+
+    function removeAbstractH(o: object, parent: object): void {
+        const value = o[keyInherit];
+        if (value === parent)
+            delete o[keyInherit];
+        else
+        if (Array.isArray(value)) {
+            const index = value.indexOf(parent);
+            if (index >= 0) {
+                value.splice(index, 1);
+
+                // simplify
+                if (value.length === 1)
+                    o[keyInherit] = value[0];
+            }
+        }
+    }
+
+    function getKeyInherit(): ObjectKeyType {
+        return keyInherit;
+    }
+
+    return {getValueInherited, addAbstractH, removeAbstractH, getKeyInherit};
 }
 
 export function arrayRemoveDublicates(array: any[]): any[] {
@@ -199,4 +240,32 @@ export function arrayRemoveDublicates(array: any[]): any[] {
     }
 
     return result;
+}
+
+export function toArray<T = any>(values: OneOrArray<T>): T[] {
+    return Array.isArray(values) ? values : [values];
+}
+
+// Array, prepend
+export function unshiftUniqueValue(array: any[], value: any) {
+    if (array.indexOf(value) < 0)
+        array.unshift(value);
+}
+
+
+export const prototypeDefault = Object.getPrototypeOf({});
+
+export function getFirstParentWithKey(o: object, key: ObjectKeyType): object {
+    if (!o[key])
+        return;
+
+    let obj = o;
+    do {
+        if (obj.hasOwnProperty(key))
+            return obj;
+
+        obj = Object.getPrototypeOf(obj);
+    } while (obj && obj !== prototypeDefault);
+
+    return prototypeDefault;
 }

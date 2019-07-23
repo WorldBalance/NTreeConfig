@@ -6,41 +6,37 @@
     }
   },
   "postgres": {
-    "config": {
-      "main": {
-        "port": 123,
-        "user": "user1",
-        "password": "pass1",
-        "key4": 4
-      },
-
-      "local": {
-        "inherit": "../main",
-        "host": "localhost",
-        "database": "db1"
-      },
-      "remote": {
-        "inherit": "../main",
-        "database": "db2",
-        "key3": 3
-      },
-
-      "pc1": {
-        "inherit": "../remote",
-        "host": "ip1"
-      },
-      "pc3": {
-        "inherit": "../remote",
-        "host": "ip2",
-        "key1": 1
-      }
+    "main": {
+      "port": 123,
+      "user": "user1",
+      "password": "pass1",
+      "key4": 4
+    },
+    "local": {
+      "inherit": "../main",
+      "host": "localhost",
+      "database": "db1"
+    },
+    "remote": {
+      "inherit": "../main",
+      "database": "db2",
+      "key3": 3
+    },
+    "pc1": {
+      "inherit": "../remote",
+      "host": "ip1"
+    },
+    "pc3": {
+      "inherit": "../remote",
+      "host": "ip2",
+      "key1": 1
     }
   },
   "pc3": {
-    "inherit": ["..//postgres/config/pc3", "/obj1/obj11"],
+    "inherit": ["..//postgres/pc3", "/obj1/obj11"],
     "key0": 0
   },
   "config2": {
-    "inherit": "/postgres/config"
+    "inherit": "/postgres"
   }
 }
