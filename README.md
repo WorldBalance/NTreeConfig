@@ -81,4 +81,4 @@ NTreeConfig:getObject(keys: OneOrArray<ObjectKeyType>): object;
 ## Advanced
 [Full config file](https://github.com/WorldBalance/NTreeConfig/blob/master/test/data.json) (*.json)
 
-[Full module tests](http://localhost/ "link title") (*.ts)
+[Full module tests](https://github.com/WorldBalance/NTreeConfig/blob/master/test/index.ts) (*.ts)
