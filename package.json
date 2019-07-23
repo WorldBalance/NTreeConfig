@@ -1,6 +1,6 @@
 {
   "name": "ntreeconfig",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "description": "Configuration file with multiple inheritance of group properties",
   "main": "./lib/index.js",
   "scripts": {
